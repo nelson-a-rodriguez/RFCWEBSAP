@@ -6,17 +6,14 @@ using System.Threading.Tasks;
 
 namespace RFCWEBSAP
 {
-    public class RegistroJerarquiaWeb
+    public class RegistroOferta
     {
-        public int excode { get; set; }
+        public int excode {get;set;}
         public string exdetail { get; set; }
 
-        public int fila { get; set; }
-        public string PRODH { get; set; }
-        public string STUFE { get; set; }
-        public string VTEXT { get; set; }
-
-        public RegistroJerarquiaWeb()
+        public string statusOferta { get; set; }
+        
+        public RegistroOferta()
         {
             excode = 0;
             exdetail = "";

@@ -8,6 +8,9 @@ namespace RFCWEBSAP
 {
     public class RegistroInventario
     {
+        public int excode { get; set; }
+        public string exdetail { get; set; }
+        
         public int fila { get; set; }
         public string CENTRO { get; set; }
         public string ALMACEN { get; set; }
@@ -32,5 +35,11 @@ namespace RFCWEBSAP
         public string VOLUMEN { get; set; }
         public string PESO { get; set; }
         public string MARCA { get; set; }
+
+        public RegistroInventario()
+        {
+            excode = 0;
+            exdetail = "";
+        }
     }
 }

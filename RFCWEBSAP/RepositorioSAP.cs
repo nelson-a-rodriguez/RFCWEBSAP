@@ -10,8 +10,20 @@ namespace RFCWEBSAP
 {
     public class RepositorioSAP
     {
-        static RfcDestination SapRfcDestination;
-        static RfcRepository SapRfcRepository;
+        RfcDestination SapRfcDestination;
+        RfcRepository SapRfcRepository;
+        SapConnection con;
+
+        public RepositorioSAP(SapParametros parametros)
+        {
+            con = new SapConnection(parametros);
+            if (RfcDestinationManager.TryGetDestination(con.parametros.Name) == null)
+            {
+                RfcDestinationManager.RegisterDestinationConfiguration(con);
+            }
+            SapRfcDestination = RfcDestinationManager.GetDestination(con.parametros.Name);
+            SapRfcRepository = SapRfcDestination.Repository;
+        }
 
         public RepositorioSAP(string NombreSistemaSap)
         {
@@ -21,15 +33,14 @@ namespace RFCWEBSAP
 
         public List<RegistroInventario> ConsultarInventario(string sCentro, string sJerarquiaWeb)
         {
+            List<RegistroInventario> inventarios = new List<RegistroInventario>();
             try
             {
                 IRfcFunction BapiZWEB_INVENTARIO = SapRfcRepository.CreateFunction("ZWEB_INVENTARIO_V2");
                 BapiZWEB_INVENTARIO.SetValue("I_SUCURSAl", sCentro);
                 BapiZWEB_INVENTARIO.SetValue("I_PRDHA", sJerarquiaWeb);
                 BapiZWEB_INVENTARIO.Invoke(SapRfcDestination);
-                //INVENTARIO
                 IRfcTable tabla_E_INVENTARIO = BapiZWEB_INVENTARIO.GetTable("E_INVENTARIO");
-                List<RegistroInventario> resultado = new List<RegistroInventario>();
                 for (int InventarioPtr = 0; InventarioPtr < tabla_E_INVENTARIO.RowCount; InventarioPtr++)
                 {
                     RegistroInventario fila = new RegistroInventario()
@@ -59,26 +70,46 @@ namespace RFCWEBSAP
                         PESO = tabla_E_INVENTARIO.GetString("PESO"),
                         MARCA = tabla_E_INVENTARIO.GetString("MARCA")
                     };
-                    resultado.Add(fila);
+                    inventarios.Add(fila);
                 }
-                return resultado;
+                return inventarios;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
-                return null;
+                inventarios = new List<RegistroInventario>();
+                RegistroInventario fila = new RegistroInventario()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                inventarios.Add(fila);
+                return inventarios;
             }
         }
 
         public List<RegistroJerarquiaWeb> ConsultarJerarquiaWeb()
         {
+            List<RegistroJerarquiaWeb> jerarquias = new List<RegistroJerarquiaWeb>();
             try
             {
+                //pruebas de bapis de despacho automatizado
+                //IRfcFunction BapiZWEB_JERARQUIAWEB1 = SapRfcRepository.CreateFunction("ZSD_GRABAR_FACTURA_FISCAL");
+                //IRfcFunction BapiZWEB_JERARQUIAWEB1 = SapRfcRepository.CreateFunction("ZMM_VALIDA");
+                //IRfcFunction BapiZWEB_JERARQUIAWEB1 = SapRfcRepository.CreateFunction("ZMM_VT01N");
+                //BapiZWEB_JERARQUIAWEB1.SetValue("RESWK", "1001");
+                //BapiZWEB_JERARQUIAWEB1.SetValue("EWERK", "1006");
+                //IRfcTable tabla_E_JERARQUIA_WEB1 = BapiZWEB_JERARQUIAWEB1.GetTable("ZMATERIALES");
+                //IRfcTable tabla_E_JERARQUIA_WEB2 = BapiZWEB_JERARQUIAWEB1.GetTable("RETURN");
+                //tabla_E_JERARQUIA_WEB1.Append();
+                //tabla_E_JERARQUIA_WEB1.CurrentRow.SetValue("MATERIAL", "000000000000020001");
+                ////tabla_E_JERARQUIA_WEB1.CurrentRow.SetValue("MATERIAL", "2800010000001");
+                //tabla_E_JERARQUIA_WEB1.CurrentRow.SetValue("CANTIDAD", "10");
+                //tabla_E_JERARQUIA_WEB1.CurrentRow.SetValue("UNIDAD", "ST");
+                //BapiZWEB_JERARQUIAWEB1.Invoke(SapRfcDestination);
+                
                 IRfcFunction BapiZWEB_JERARQUIAWEB = SapRfcRepository.CreateFunction("ZWEB_JERARQUIAWEB");
                 BapiZWEB_JERARQUIAWEB.Invoke(SapRfcDestination);
-                //JERARQUIA WEB
                 IRfcTable tabla_E_JERARQUIA_WEB = BapiZWEB_JERARQUIAWEB.GetTable("E_JERARQUIA_WEB");
-                List<RegistroJerarquiaWeb> resultado = new List<RegistroJerarquiaWeb>();
                 for (int JerarquiaPtr = 0; JerarquiaPtr < tabla_E_JERARQUIA_WEB.RowCount; JerarquiaPtr++)
                 {
                     RegistroJerarquiaWeb fila = new RegistroJerarquiaWeb()
@@ -88,238 +119,444 @@ namespace RFCWEBSAP
                         STUFE = tabla_E_JERARQUIA_WEB.GetString("STUFE"),
                         VTEXT = tabla_E_JERARQUIA_WEB.GetString("VTEXT"),
                     };
-                    resultado.Add(fila);
+                    jerarquias.Add(fila);
                 }
-                return resultado;
+                return jerarquias;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
-                return null;
+                jerarquias = new List<RegistroJerarquiaWeb>();
+                RegistroJerarquiaWeb fila = new RegistroJerarquiaWeb()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                jerarquias.Add(fila);
+                return jerarquias;
             }
         }
 
-        public string ProbarIdocInboundSingle()
+        public RegistroCliente ConsultarClienteSap(string NroDocumento)
         {
+            RegistroCliente cliente = new RegistroCliente();
             try
             {
-                //IRfcFunction BapiBAPI_CUSTOMER_CREATEFROMDATA1 = SapRfcRepository.CreateFunction("BAPI_CUSTOMER_CREATEFROMDATA1");                
-                //IRfcStructure estructura_PI_COPYREFERENCE = BapiBAPI_CUSTOMER_CREATEFROMDATA1.GetStructure("PI_COPYREFERENCE");
-                //IRfcStructure estructura_PI_PERSONALDATA = BapiBAPI_CUSTOMER_CREATEFROMDATA1.GetStructure("PI_PERSONALDATA");
-                //////Llenar parametros de funcion
-                //estructura_PI_COPYREFERENCE.SetValue("SALESORG", "0100");
-                //estructura_PI_COPYREFERENCE.SetValue("DISTR_CHAN", "02");
-                //estructura_PI_COPYREFERENCE.SetValue("DIVISION", "01");
-                //estructura_PI_COPYREFERENCE.SetValue("REF_CUSTMR", "V-14566318-0");
-                //estructura_PI_PERSONALDATA.SetValue("TITLE_P", " ");
-                //estructura_PI_PERSONALDATA.SetValue("FIRSTNAME", "nelson gerardo");
-                //estructura_PI_PERSONALDATA.SetValue("LASTNAME", "rodriguez briceño");
-                //estructura_PI_PERSONALDATA.SetValue("MIDDLENAME", " ");
-                //estructura_PI_PERSONALDATA.SetValue("SECONDNAME", " ");
-                //estructura_PI_PERSONALDATA.SetValue("DATE_BIRTH", " ");
-                //estructura_PI_PERSONALDATA.SetValue("CITY", " ");
-                //estructura_PI_PERSONALDATA.SetValue("DISTRICT", " ");
-                //estructura_PI_PERSONALDATA.SetValue("POSTL_COD1", " ");
-                //estructura_PI_PERSONALDATA.SetValue("POSTL_COD2", " ");
-                //estructura_PI_PERSONALDATA.SetValue("PO_BOX", " ");
-                //estructura_PI_PERSONALDATA.SetValue("PO_BOX_CIT", " ");
-                //estructura_PI_PERSONALDATA.SetValue("STREET", " ");
-                //estructura_PI_PERSONALDATA.SetValue("HOUSE_NO", " ");
-                //estructura_PI_PERSONALDATA.SetValue("BUILDING", " ");
-                //estructura_PI_PERSONALDATA.SetValue("FLOOR", " ");
-                //estructura_PI_PERSONALDATA.SetValue("ROOM_NO", " ");
-                //estructura_PI_PERSONALDATA.SetValue("COUNTRY", " ");
-                //estructura_PI_PERSONALDATA.SetValue("COUNTRYISO", " ");
-                //estructura_PI_PERSONALDATA.SetValue("REGION", " ");
-                //estructura_PI_PERSONALDATA.SetValue("TEL1_NUMBR", " ");
-                //estructura_PI_PERSONALDATA.SetValue("TEL1_EXT", " ");
-                //estructura_PI_PERSONALDATA.SetValue("FAX_NUMBER", " ");
-                //estructura_PI_PERSONALDATA.SetValue("FAX_EXTENS", " ");
-                //estructura_PI_PERSONALDATA.SetValue("E_MAIL", " ");
-                //estructura_PI_PERSONALDATA.SetValue("LANGU_P", " ");
-                //estructura_PI_PERSONALDATA.SetValue("LANGUP_ISO", " ");
-                //estructura_PI_PERSONALDATA.SetValue("CURRENCY", " ");
-                //estructura_PI_PERSONALDATA.SetValue("CURRENCY_ISO", " ");
-                //estructura_PI_PERSONALDATA.SetValue("TITLE_KEY", " ");
-                //estructura_PI_PERSONALDATA.SetValue("ONLY_CHANGE_COMADDRESS", " ");
-                //BapiBAPI_CUSTOMER_CREATEFROMDATA1.Invoke(SapRfcDestination);
-                //IRfcStructure estructura_RETURN = BapiBAPI_CUSTOMER_CREATEFROMDATA1.GetStructure("RETURN");
-                //string mensaje = estructura_RETURN.GetString("TYPE") + " " + estructura_RETURN.GetString("MESSAGE");                
-                //return mensaje;  
+                IRfcFunction BapiZWEB_GET_CUSTOMER = SapRfcRepository.CreateFunction("ZWEB_GET_CUSTOMER");
+                BapiZWEB_GET_CUSTOMER.SetValue("A_STCD1", NroDocumento);
+                BapiZWEB_GET_CUSTOMER.Invoke(SapRfcDestination);
+                cliente.CUSTOMERNO = BapiZWEB_GET_CUSTOMER.GetValue("A_KUNNR").ToString();
+                return cliente;
+            }
+            catch (Exception ex)
+            {
+                cliente = new RegistroCliente()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return cliente;
+            }
+        }
 
-
+        public RespuestaCrearCliente CrearClienteSap(RegistroCrearCliente datoscliente)
+        {
+            RespuestaCrearCliente cliente = new RespuestaCrearCliente();
+            try
+            {
                 IRfcFunction BapiIDOC_INBOUND_SINGLE = SapRfcRepository.CreateFunction("IDOC_INBOUND_SINGLE");
                 IRfcStructure estructura_PI_IDOC_CONTROL_REC_40 = BapiIDOC_INBOUND_SINGLE.GetStructure("PI_IDOC_CONTROL_REC_40");
                 IRfcTable tabla_PT_IDOC_DATA_RECORDS_40 = BapiIDOC_INBOUND_SINGLE.GetTable("PT_IDOC_DATA_RECORDS_40");
                 BapiIDOC_INBOUND_SINGLE.SetValue("PI_DO_COMMIT", "X");
-                //no existe: Llenar estructura de control de funcion, estos datos los tengo yo, quizas los ponga en el appconfig/webconfig
-                //no existe: estructura_PI_IDOC_CONTROL_REC_40.SetValue("CLIENT", "100");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("DIRECT", "2");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("IDOCTYP", "ZCLIENTE");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("MANDT", "300");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("MESTYP", "ZKNA1");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPOR", "SAPDV1");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRN", "SAP");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRT", "LS");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPOR", "WEBX");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRN", "WEBPLZ");
-                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRT", "LS");
-                //no existe: estructura_PI_IDOC_CONTROL_REC_40.SetValue("SYSTEMNUMBER", "0");
-                //no existe: estructura_PI_IDOC_CONTROL_REC_40.SetValue("USERNAME", "webplz");
-                //Llenar estructura de datos de funcion
-                //ZCLIENTE, estos datos si recibirlos de la web
+                //DATOS DE CONTROL
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("DIRECT", datoscliente.DIRECT);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("IDOCTYP", datoscliente.IDOCTYP);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("MANDT", datoscliente.MANDT);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("MESTYP", datoscliente.MESTYP);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPOR", datoscliente.RCVPOR);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRN", datoscliente.RCVPRN);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRT", datoscliente.RCVPRT);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPOR", datoscliente.SNDPOR);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRN", datoscliente.SNDPRN);
+                estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRT", datoscliente.SNDPRT);
+                //ZCLIENTE
                 tabla_PT_IDOC_DATA_RECORDS_40.Append();
                 tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SEGNAM", "ZCLIENTE");
                 string sdata = "";
-                sdata = sdata + "V-14768188-0    "; //_stcd1 = new char[16];*
+                sdata = sdata + datoscliente.ZCLIENTE_STCD1.PadRight(16); //_stcd1 = new char[16];*
                 sdata = sdata + "        "; //_date_birth = new char[8];
-                sdata = sdata + "0"; //_famst = new char();
-                sdata = sdata + "1                             "; //_Title_P = new char[30];
-                sdata = sdata + "nelson gerardo                          "; //_FirstName = new char[40];*
-                sdata = sdata + "rodriguez briceño                       "; //_LastName = new char[40];*
+                sdata = sdata + " "; //_famst = new char();
+                sdata = sdata + "                              "; //_Title_P = new char[30];
+                sdata = sdata + datoscliente.ZCLIENTE_FIRSTNAME.PadRight(40); //_FirstName = new char[40];*
+                sdata = sdata + datoscliente.ZCLIENTE_LASTNAME.PadRight(40); //_LastName = new char[40];*
                 sdata = sdata + "                                        "; //_MiddleName = new char[40];
                 sdata = sdata + "                                        "; //_SecondName = new char[40];
                 sdata = sdata + "                                        "; //_Name2_P = new char[40];
                 sdata = sdata + "                    "; //_Title_Aca1 = new char[20];
-                sdata = sdata + "1"; //_Parge = new char();
+                sdata = sdata + " "; //_Parge = new char();
                 sdata = sdata + "                                        "; //_HomeCity = new char[40];
-                sdata = sdata + "av soublette                                                "; //_Street = new char[60];*
+                sdata = sdata + datoscliente.ZCLIENTE_STREET.PadRight(60); //_Street = new char[60];*
                 sdata = sdata + "          "; //_House_NO = new char[10];
                 sdata = sdata + "                                        "; //_Str_Suppl1 = new char[40];
                 sdata = sdata + "                                        "; //_Str_Suppl2 = new char[40];
                 sdata = sdata + "                                        "; //_Str_Suppl3 = new char[40];
                 sdata = sdata + "                                    "; //_Location = new char[36];
                 sdata = sdata + "          "; //_Postl_Cod1 = new char[10];
-                sdata = sdata + "maiquetia                               "; //_City = new char[40];*
+                sdata = sdata + datoscliente.ZCLIENTE_CITY.PadRight(40); //_City = new char[40];*
                 sdata = sdata + "                                        "; //_District = new char[40];
-                sdata = sdata + "ve "; //_Country = new char[3];*
-                sdata = sdata + "var"; //_Region = new char[3];*
-                sdata = sdata + "1070      "; //_Po_Box = new char[10];*
-                sdata = sdata + "                              "; //_Tel1_Numbr = new char[30];
+                sdata = sdata + datoscliente.ZCLIENTE_COUNTRY.PadRight(3); ; //_Country = new char[3];*
+                sdata = sdata + datoscliente.ZCLIENTE_REGION.PadRight(3); //_Region = new char[3];*
+                sdata = sdata + datoscliente.ZCLIENTE_PO_BOX.PadRight(10); //_Po_Box = new char[10];*
+                sdata = sdata + datoscliente.ZCLIENTE_TEL_NUMBER.PadRight(30); //_Tel1_Numbr = new char[30];
                 sdata = sdata + "          "; //_Tel1_Ext = new char[10];
-                sdata = sdata + "                              "; //_Mob_Number = new char[30];
+                sdata = sdata + datoscliente.ZCLIENTE_MOB_NUMBER.PadRight(30); //_Mob_Number = new char[30];
                 sdata = sdata + "                              "; //_FaxNumber = new char[30];
                 sdata = sdata + "          "; //_Fax_Extens = new char[10];
-                sdata = sdata + "                                                                                                                        "; //_zclientee_mail = new char[120];
-                sdata = sdata + "referencia                                        "; //_remark = new char[50];
-                //sdata = sdata + "ZNAT"; //_KTOKD = new char[4];*
+                sdata = sdata + datoscliente.ZCLIENTE_CORREO.PadRight(120); //_zclientee_mail = new char[120];
+                sdata = sdata + datoscliente.ZCLIENTE_REMARK.PadRight(50); //_remark = new char[50];
                 tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SDATA", sdata);
                 tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("HLEVEL", "01");
-                //ZAREA_VTAS, estos datos si recibirlos de la web
+                //ZAREA_VTAS
                 tabla_PT_IDOC_DATA_RECORDS_40.Append();
                 tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SEGNAM", "ZAREA_VTAS");
                 string sdata2 = "";
-                sdata2 = sdata2 + "0100";
-                sdata2 = sdata2 + "02";
-                sdata2 = sdata2 + "01";
-                sdata2 = sdata2 + "V-14768188-0";
+                sdata2 = sdata2 + datoscliente.ZAREA_VTAS_SALESORG.PadRight(4);
+                sdata2 = sdata2 + datoscliente.ZAREA_VTAS_DISTR_CHAN.PadRight(2);
+                sdata2 = sdata2 + datoscliente.ZAREA_VTAS_DIVISION.PadRight(2);
+                sdata2 = sdata2 + datoscliente.ZAREA_VTAS_STCD1;
                 tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SDATA", sdata2);
-                //ejecutar funcion
+                tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("HLEVEL", "01");
                 BapiIDOC_INBOUND_SINGLE.Invoke(SapRfcDestination);
                 var error = BapiIDOC_INBOUND_SINGLE.GetValue("PE_ERROR_PRIOR_TO_APPLICATION").ToString();
                 var idoc = BapiIDOC_INBOUND_SINGLE.GetValue("PE_IDOC_NUMBER").ToString();
-                return error + " " + idoc;            
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message);
-                return null;
-            }
-        }
-
-        public string BuscarCliente(string NroDocumento)
-        {
-            try
-            {
-                IRfcFunction BapiZWEB_GET_CUSTOMER = SapRfcRepository.CreateFunction("ZWEB_GET_CUSTOMER");
-                BapiZWEB_GET_CUSTOMER.SetValue("A_STCD1", NroDocumento);
-                BapiZWEB_GET_CUSTOMER.Invoke(SapRfcDestination);
-                IRfcTable tabla_ZDIR_ALTERNA = BapiZWEB_GET_CUSTOMER.GetTable("ZDIR_ALTERNA");
-                List<Object> filas = new List<Object>();
-                for (int JerarquiaPtr = 0; JerarquiaPtr < tabla_ZDIR_ALTERNA.RowCount; JerarquiaPtr++)
+                RegistroCliente consulta = ConsultarClienteSap(datoscliente.ZCLIENTE_STCD1);
+                if (consulta.excode == 0 && consulta.CUSTOMERNO != "")
                 {
-                    var fila = new
-                    {
-                        fila = tabla_ZDIR_ALTERNA.CurrentIndex = JerarquiaPtr,
-                        NU_ALTERNO = tabla_ZDIR_ALTERNA.GetString("NU_ALTERNO"),
-                        NOMBRE = tabla_ZDIR_ALTERNA.GetString("NOMBRE"),
-                        APELLIDO = tabla_ZDIR_ALTERNA.GetString("APELLIDO"),
-                        CEDULA = tabla_ZDIR_ALTERNA.GetString("CEDULA"),
-                        TELEFONO = tabla_ZDIR_ALTERNA.GetString("TELEFONO"),
-                        CALLE1 = tabla_ZDIR_ALTERNA.GetString("CALLE1"),
-                        CALLE2 = tabla_ZDIR_ALTERNA.GetString("CALLE2"),
-                        URBANIZACION = tabla_ZDIR_ALTERNA.GetString("URBANIZACION"),
-                        CIUDAD = tabla_ZDIR_ALTERNA.GetString("CIUDAD"),
-                        ESTADO = tabla_ZDIR_ALTERNA.GetString("ESTADO"),
-                        PAIS = tabla_ZDIR_ALTERNA.GetString("PAIS"),
-                        CODIGO_POSTAL = tabla_ZDIR_ALTERNA.GetString("CODIGO_POSTAL"),
-                        REMARK = tabla_ZDIR_ALTERNA.GetString("REMARK")
-                    };
-                    filas.Add(fila);
+                    cliente.idSapCliente = consulta.CUSTOMERNO;
+                    return cliente;
                 }
-                return BapiZWEB_GET_CUSTOMER.GetValue("A_KUNNR").ToString();
+                else
+                {
+                    cliente.excode = consulta.excode;
+                    cliente.exdetail = consulta.exdetail;
+                    return cliente;
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
-                return "";
+                cliente = new RespuestaCrearCliente()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return cliente;
             }
         }
 
-        public string ActualizarCliente(string NroCliente, RegistroCliente DatosCliente)
+        public RespuestaActualizarCliente ActualizarClienteSap(RegistroActualizarCliente datoscliente)
         {
+            RespuestaActualizarCliente cliente = new RespuestaActualizarCliente();
             try
             {
-                IRfcFunction BapiZWEB_UPD_CUSTOMER = SapRfcRepository.CreateFunction("ZWEB_UPD_CUSTOMER");
-                BapiZWEB_UPD_CUSTOMER.SetValue("PI_CUSTOMERNO", NroCliente);
-                BapiZWEB_UPD_CUSTOMER.SetValue("PI_SALESORG", DatosCliente.VKORG);
-                BapiZWEB_UPD_CUSTOMER.SetValue("PI_DISTR_CHAN", DatosCliente.VTWEG);
-                BapiZWEB_UPD_CUSTOMER.SetValue("PI_DIVISION", DatosCliente.SPART);
-                BapiZWEB_UPD_CUSTOMER.SetValue("PI_STCD1", DatosCliente.STCD1);      
-                IRfcStructure estructura_PI_ADRC = BapiZWEB_UPD_CUSTOMER.GetStructure("PI_ADRC");
-                estructura_PI_ADRC.SetValue("NAME_FIRST", DatosCliente.NAME_FIRST);
-                estructura_PI_ADRC.SetValue("NAMEMIDDLE", DatosCliente.NAMEMIDDLE);
-                estructura_PI_ADRC.SetValue("NAME_LAST2", DatosCliente.NAME_LAST2);
-                estructura_PI_ADRC.SetValue("NAME_LAST", DatosCliente.NAME_LAST);
-                estructura_PI_ADRC.SetValue("NAME2_P", DatosCliente.NAME2_P);
-                estructura_PI_ADRC.SetValue("NAMCOUNTRY", DatosCliente.NAMCOUNTRY);
-                estructura_PI_ADRC.SetValue("STR_SUPPL1", DatosCliente.STR_SUPPL1);
-                estructura_PI_ADRC.SetValue("STR_SUPPL2", DatosCliente.STR_SUPPL2);
-                estructura_PI_ADRC.SetValue("STR_SUPPL3", DatosCliente.STR_SUPPL3);
-                estructura_PI_ADRC.SetValue("STREET", DatosCliente.STREET);
-                estructura_PI_ADRC.SetValue("LOCATION", DatosCliente.LOCATION);
-                estructura_PI_ADRC.SetValue("CITY2", DatosCliente.CITY2);
-                estructura_PI_ADRC.SetValue("HOME_CITY", DatosCliente.HOME_CITY);
-                estructura_PI_ADRC.SetValue("POST_CODE1", DatosCliente.POST_CODE1);
-                estructura_PI_ADRC.SetValue("CITY1", DatosCliente.CITY1);
-                estructura_PI_ADRC.SetValue("COUNTRY", DatosCliente.COUNTRY);
-                estructura_PI_ADRC.SetValue("REGION", DatosCliente.REGION);
-                estructura_PI_ADRC.SetValue("REMARK", DatosCliente.REMARK);
-                IRfcStructure estructura_PI_SZA7 = BapiZWEB_UPD_CUSTOMER.GetStructure("PI_SZA7");
-                estructura_PI_SZA7.SetValue("TITLE_MEDI", DatosCliente.TITLE_MEDI);
-                estructura_PI_SZA7.SetValue("TITLE_ACA1", DatosCliente.TITLE_ACA1);
-                estructura_PI_SZA7.SetValue("TEL_NUMBER", DatosCliente.TEL_NUMBER);
-                estructura_PI_SZA7.SetValue("MOB_NUMBER", DatosCliente.MOB_NUMBER);
-                estructura_PI_SZA7.SetValue("SMTP_ADDR", DatosCliente.SMTP_ADDR);
-                IRfcStructure estructura_PI_KNVK = BapiZWEB_UPD_CUSTOMER.GetStructure("PI_KNVK");
-                estructura_PI_KNVK.SetValue("PARGE", DatosCliente.PARGE);
-                estructura_PI_KNVK.SetValue("GBDAT", DatosCliente.GBDAT);
-                estructura_PI_KNVK.SetValue("FAMST", DatosCliente.FAMST);
-                estructura_PI_KNVK.SetValue("KUNNR", DatosCliente.KUNNR);
-                
-                BapiZWEB_UPD_CUSTOMER.Invoke(SapRfcDestination);
-                IRfcTable tabla_TI_RETURN = BapiZWEB_UPD_CUSTOMER.GetTable("TI_RETURN");
+                IRfcFunction BapiZWEB_UPD_CUSTOMER_V2 = SapRfcRepository.CreateFunction("ZWEB_UPD_CUSTOMER_V2");
+                BapiZWEB_UPD_CUSTOMER_V2.SetValue("PI_CUSTOMERNO", datoscliente.PI_CUSTOMERNO);
+                BapiZWEB_UPD_CUSTOMER_V2.SetValue("PI_SALESORG", datoscliente.PI_SALESORG);
+                BapiZWEB_UPD_CUSTOMER_V2.SetValue("PI_DISTR_CHAN", datoscliente.PI_DISTR_CHAN);
+                BapiZWEB_UPD_CUSTOMER_V2.SetValue("PI_DIVISION", datoscliente.PI_DIVISION);
+                BapiZWEB_UPD_CUSTOMER_V2.SetValue("PI_STCD1", datoscliente.PI_STCD1);//   
+                //ZCLIENTE
+                IRfcStructure estructura_ZCLIENTE = BapiZWEB_UPD_CUSTOMER_V2.GetStructure("Z_CLIENTE");
+                estructura_ZCLIENTE.SetValue("NAME_FIRST", datoscliente.ZCLIENTE_NAME_FIRST);//
+                estructura_ZCLIENTE.SetValue("NAME_LAST", datoscliente.ZCLIENTE_NAME_LAST);//
+                estructura_ZCLIENTE.SetValue("STREET", datoscliente.ZCLIENTE_STREET);//
+                estructura_ZCLIENTE.SetValue("POST_CODE1", datoscliente.Z_DIRECC_POST_CODE1);
+                estructura_ZCLIENTE.SetValue("REGION", datoscliente.ZCLIENTE_REGION);
+                estructura_ZCLIENTE.SetValue("CITY1", datoscliente.ZCLIENTE_CITY1);
+                estructura_ZCLIENTE.SetValue("COUNTRY", datoscliente.ZCLIENTE_COUNTRY);
+                estructura_ZCLIENTE.SetValue("REMARK", datoscliente.ZCLIENTE_REMARK);
+                estructura_ZCLIENTE.SetValue("TEL_NUMBER", datoscliente.ZCLIENTE_TEL_NUMBER);
+                estructura_ZCLIENTE.SetValue("MOB_NUMBER", datoscliente.ZCLIENTE_MOB_NUMBER);
+                estructura_ZCLIENTE.SetValue("CORREO", datoscliente.ZCLIENTE_CORREO);
+                //Z_DIRECC
+                IRfcTable Tabla_Z_DIRECC = BapiZWEB_UPD_CUSTOMER_V2.GetTable("Z_DIRECC");
+                Tabla_Z_DIRECC.Append();
+                Tabla_Z_DIRECC.SetValue("KUNNR", datoscliente.Z_DIRECC_KUNNR);
+                Tabla_Z_DIRECC.SetValue("STCD1", datoscliente.Z_DIRECC_STCD1);
+                Tabla_Z_DIRECC.SetValue("NAME_FIRST", datoscliente.Z_DIRECC_NAME_FIRST);
+                Tabla_Z_DIRECC.SetValue("NAME_LAST", datoscliente.Z_DIRECC_NAME_LAST);
+                Tabla_Z_DIRECC.SetValue("STREET", datoscliente.Z_DIRECC_STREET);
+                Tabla_Z_DIRECC.SetValue("POST_CODE1", datoscliente.Z_DIRECC_POST_CODE1);
+                Tabla_Z_DIRECC.SetValue("REGION", datoscliente.Z_DIRECC_REGION);
+                Tabla_Z_DIRECC.SetValue("CITY1", datoscliente.Z_DIRECC_CITY1);
+                Tabla_Z_DIRECC.SetValue("COUNTRY", datoscliente.Z_DIRECC_COUNTRY);
+                Tabla_Z_DIRECC.SetValue("REMARK", datoscliente.Z_DIRECC_REMARK);
+                Tabla_Z_DIRECC.SetValue("TEL_NUMBER", datoscliente.Z_DIRECC_TEL_NUMBER);
+                Tabla_Z_DIRECC.SetValue("MOB_NUMBER", datoscliente.Z_DIRECC_MOB_NUMBER);
+                Tabla_Z_DIRECC.SetValue("CORREO", datoscliente.Z_DIRECC_CORREO);
+                Tabla_Z_DIRECC.SetValue("ACCION", datoscliente.Z_DIRECC_ACCION);
+                BapiZWEB_UPD_CUSTOMER_V2.Invoke(SapRfcDestination);
+                IRfcTable tabla_TI_RETURN = BapiZWEB_UPD_CUSTOMER_V2.GetTable("TI_RETURN");
                 string msg = tabla_TI_RETURN.GetValue("MSGTYP").ToString();
-                msg = msg + "/" + tabla_TI_RETURN.GetString("MSGV1") + "/" + tabla_TI_RETURN.GetString("MSGV2") + "/" + tabla_TI_RETURN.GetString("MSGV3") + "/" + tabla_TI_RETURN.GetString("MSGV4");
-                msg = msg + "/" + tabla_TI_RETURN.GetString("FLDNAME");
-                return msg;
+                if (msg == "S")
+                {
+                    cliente.idSapClientePrincipal = datoscliente.PI_CUSTOMERNO;
+                    cliente.idSapClienteAlterno = BapiZWEB_UPD_CUSTOMER_V2.GetValue("W_DESTINATARIO").ToString();
+                }
+                else
+                {
+                    cliente.excode = -1;
+                    cliente.exdetail = tabla_TI_RETURN.GetString("FLDNAME");
+                }
+                return cliente;
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
-                return "";
+                cliente = new RespuestaActualizarCliente()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return cliente;
             }
         }
 
+        public RegistroOferta ConsultarOfertaSap(string sPedido)
+        {
+            RegistroOferta oferta = new RegistroOferta();
+            try
+            {
+                IRfcFunction BapiZWEB_STATUS_DOC = SapRfcRepository.CreateFunction("ZWEB_STATUS_DOC");
+                BapiZWEB_STATUS_DOC.SetValue("A_BSTNK", sPedido);
+                BapiZWEB_STATUS_DOC.Invoke(SapRfcDestination);
+                IRfcTable Tabla_TI_STATUS = BapiZWEB_STATUS_DOC.GetTable("TI_STATUS");
+                for (int OfertaPtr = 0; OfertaPtr < Tabla_TI_STATUS.RowCount; OfertaPtr++)
+                {
+                    Tabla_TI_STATUS.CurrentIndex = OfertaPtr;
+                    oferta.statusOferta = Tabla_TI_STATUS.GetString("STATUS");
+                }
+                return oferta;
+            }
+            catch (Exception ex)
+            {
+                oferta = new RegistroOferta()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return oferta;
+            }
+        }
+
+        public RespuestaCrearOferta CrearOfertaSap(RegistroCrearOferta datosoferta)
+        {
+            RespuestaCrearOferta oferta = new RespuestaCrearOferta();
+            try
+            {
+                //consultar pedido para evitar duplicidades, si no existe, mandar el idoc de creación
+                RegistroOferta consulta = ConsultarOfertaSap(datosoferta.ZSD_OFERTA1_BSTKD);
+                if (consulta.excode == 0 && consulta.statusOferta == "0")
+                {
+                    IRfcFunction BapiIDOC_INBOUND_SINGLE = SapRfcRepository.CreateFunction("IDOC_INBOUND_SINGLE");
+                    IRfcStructure estructura_PI_IDOC_CONTROL_REC_40 = BapiIDOC_INBOUND_SINGLE.GetStructure("PI_IDOC_CONTROL_REC_40");
+                    IRfcTable tabla_PT_IDOC_DATA_RECORDS_40 = BapiIDOC_INBOUND_SINGLE.GetTable("PT_IDOC_DATA_RECORDS_40");
+                    BapiIDOC_INBOUND_SINGLE.SetValue("PI_DO_COMMIT", "X");
+                    //DATOS DE CONTROL
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("DIRECT", datosoferta.DIRECT);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("IDOCTYP", datosoferta.IDOCTYP);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("MANDT", datosoferta.MANDT);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("MESTYP", datosoferta.MESTYP);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPOR", datosoferta.RCVPOR);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRN", datosoferta.RCVPRN);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("RCVPRT", datosoferta.RCVPRT);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPOR", datosoferta.SNDPOR);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRN", datosoferta.SNDPRN);
+                    estructura_PI_IDOC_CONTROL_REC_40.SetValue("SNDPRT", datosoferta.SNDPRT);
+                    //ZSD_OFERTA1 
+                    tabla_PT_IDOC_DATA_RECORDS_40.Append();
+                    tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SEGNAM", "ZSD_OFERTA1");
+                    string sdata = "";
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_AUART.PadRight(4);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_VKORG.PadRight(4);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_VTWEG.PadRight(2);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_SPART.PadRight(2);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_KUNNR.PadRight(10);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_KUNNR2.PadRight(10);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_BSTKD.PadRight(35);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_BSTDK.PadRight(8);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_ANGDT.PadRight(8);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_BNDDT.PadRight(8);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_BNDDT2.PadRight(8);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_TDLINE.PadRight(132);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_XFELD.PadRight(1);
+                    sdata = sdata + datosoferta.ZSD_OFERTA1_WERKS_D.PadRight(4);
+                    tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SDATA", sdata);
+                    tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("HLEVEL", "01");
+                    //ZSD_OFERTA2
+                    foreach (RegistroPosicionCrearOferta p in datosoferta.POSICIONES_OFERTA)
+                    {
+                        tabla_PT_IDOC_DATA_RECORDS_40.Append();
+                        tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SEGNAM", "ZSD_OFERTA2");
+                        string sdata2 = "";
+                        sdata2 = sdata2 + p.ZSD_OFERTA2_POSNR_VA.PadRight(6);
+                        sdata2 = sdata2 + p.ZSD_OFERTA2_MATNR.PadRight(18);
+                        sdata2 = sdata2 + p.ZSD_OFERTA2_KWMENG.PadRight(17);
+                        sdata2 = sdata2 + p.ZSD_OFERTA2_VRKME.PadRight(3);
+                        sdata2 = sdata2 + p.ZSD_OFERTA2_WERKS_EXT;//.PadRight(4);
+                        tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("SDATA", sdata2);
+                        tabla_PT_IDOC_DATA_RECORDS_40.CurrentRow.SetValue("HLEVEL", "01");
+                    }
+                    BapiIDOC_INBOUND_SINGLE.Invoke(SapRfcDestination);
+                    //var error = BapiIDOC_INBOUND_SINGLE.GetValue("PE_ERROR_PRIOR_TO_APPLICATION").ToString();
+                    //var idoc = BapiIDOC_INBOUND_SINGLE.GetValue("PE_IDOC_NUMBER").ToString();
+                    //VERIFICAR EL ESTATUS DE CARGA DEL IDOC, SE HACE CONSULTANDO EL ESTATUS DE LA OFERTA SAP CON EL PEDIDO WEB
+                    consulta = ConsultarOfertaSap(datosoferta.ZSD_OFERTA1_BSTKD);
+                    if (consulta.excode == 0 && consulta.statusOferta !=null)
+                    {
+                        oferta.statusOferta = consulta.statusOferta;
+                        return oferta;
+                    }
+                    else
+                    {
+                        oferta.excode = -2;
+                        oferta.exdetail = "No se pudo verificar la creación de la oferta en SAP";
+                        return oferta;
+                    }
+                }
+                else
+                {
+                    oferta.excode = -1;
+                    oferta.exdetail = "El pedido suministrado ya se encuentra registrado en SAP";
+                    return oferta;
+                }                               
+            }
+            catch (Exception ex)
+            {
+                oferta = new RespuestaCrearOferta()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return oferta;
+            }
+        }
+
+        public RegistroFactura ConsultarFactura(string sPedido)
+        {
+            RegistroFactura factura = new RegistroFactura();
+            try
+            {
+                IRfcFunction BapiZSD_FACTURA_WEB = SapRfcRepository.CreateFunction("ZSD_FACTURA_WEB");
+                BapiZSD_FACTURA_WEB.SetValue("V_BSTNK", sPedido);
+                BapiZSD_FACTURA_WEB.Invoke(SapRfcDestination);
+                IRfcTable tabla_Z_FACTURA_K = BapiZSD_FACTURA_WEB.GetTable("Z_FACTURA_K");
+                for (int FacturaPtr = 0; FacturaPtr < tabla_Z_FACTURA_K.RowCount; FacturaPtr++)                
+                {
+                    tabla_Z_FACTURA_K.CurrentIndex = FacturaPtr;
+                    factura.FACTURA = tabla_Z_FACTURA_K.GetString("FACTURA");
+                    factura.VKORG = tabla_Z_FACTURA_K.GetString("VKORG");
+                    factura.VTWEG = tabla_Z_FACTURA_K.GetString("VTWEG");
+                    factura.RIF = tabla_Z_FACTURA_K.GetString("RIF");
+                    factura.NBE_AUTOMER = tabla_Z_FACTURA_K.GetString("NBE_AUTOMER");
+                    factura.DIRECCION = tabla_Z_FACTURA_K.GetString("DIRECCION");
+                    factura.TLF_AUTOMER = tabla_Z_FACTURA_K.GetString("TLF_AUTOMER");
+                    factura.TIENDA = tabla_Z_FACTURA_K.GetString("TIENDA");
+                    factura.DIREC_TIENDA = tabla_Z_FACTURA_K.GetString("DIREC_TIENDA");
+                    factura.TLF_TIENDA = tabla_Z_FACTURA_K.GetString("TLF_TIENDA");
+                    factura.WERKS = tabla_Z_FACTURA_K.GetString("WERKS");
+                    factura.NBE_CLIENTE = tabla_Z_FACTURA_K.GetString("NBE_CLIENTE");
+                    factura.DIREC_CLIENTE = tabla_Z_FACTURA_K.GetString("DIREC_CLIENTE");
+                    factura.RIF_CLIENTE = tabla_Z_FACTURA_K.GetString("RIF_CLIENTE");
+                    factura.TLF_CLIENTE = tabla_Z_FACTURA_K.GetString("TLF_CLIENTE");
+                    factura.FECHA = tabla_Z_FACTURA_K.GetString("FECHA");
+                    factura.MONEDA = tabla_Z_FACTURA_K.GetString("MONEDA");
+                    factura.SUB_TOTAL = tabla_Z_FACTURA_K.GetString("SUB_TOTAL");
+                    factura.EXENTO = tabla_Z_FACTURA_K.GetString("EXENTO");
+                    factura.IVA_8 = tabla_Z_FACTURA_K.GetString("IVA_8");
+                    factura.IVA_12 = tabla_Z_FACTURA_K.GetString("IVA_12");
+                    factura.TOTAL = tabla_Z_FACTURA_K.GetString("TOTAL");
+                    factura.COD_TRANSP = tabla_Z_FACTURA_K.GetString("COD_TRANSP");
+                    factura.NBE_TRANSP = tabla_Z_FACTURA_K.GetString("NBE_TRANSP");
+                    factura.POSICIONES_FACTURA = new List<PosicionesFactura>();
+                    IRfcTable tabla_Z_FACTURA_P = BapiZSD_FACTURA_WEB.GetTable("Z_FACTURA_P");
+                    factura.POSICIONES_FACTURA = new List<PosicionesFactura>();
+                    for (int PosicionesPtr = 0; PosicionesPtr < tabla_Z_FACTURA_P.RowCount; PosicionesPtr++)
+                    {
+                        PosicionesFactura fila = new PosicionesFactura()
+                        {
+                            fila = tabla_Z_FACTURA_P.CurrentIndex = PosicionesPtr,
+                            FACTURA = tabla_Z_FACTURA_P.GetString("FACTURA"),
+                            POSNR = tabla_Z_FACTURA_P.GetString("POSNR"),
+                            COD_ARTIC = tabla_Z_FACTURA_P.GetString("COD_ARTIC"),
+                            ARTICULO = tabla_Z_FACTURA_P.GetString("ARTICULO"),
+                            CANTIDAD = tabla_Z_FACTURA_P.GetString("CANTIDAD"),
+                            UNIDAD_MEDIDA = tabla_Z_FACTURA_P.GetString("UNIDAD_MEDIDA"),
+                            PRECIO = tabla_Z_FACTURA_P.GetString("PRECIO"),
+                            ALICUOTA = tabla_Z_FACTURA_P.GetString("ALICUOTA"),
+                            MONTO = tabla_Z_FACTURA_P.GetString("MONTO")
+                        };
+                        factura.POSICIONES_FACTURA.Add(fila);
+                    }
+                }
+                return factura;
+            }
+            catch (Exception ex)
+            {
+                factura = new RegistroFactura()
+                {
+                    excode = ex.HResult,
+                    exdetail = ex.Message
+                };
+                return factura;
+            }
+        }
+
+        //public void Close()
+        //{
+        //    RfcDestinationManager.UnregisterDestinationConfiguration(con);
+        //}
+
+        public class SapParametros
+        {
+            public string Name { set; get; }
+            public string User { set; get; }
+            public string Password { set; get; }
+            public string Client { set; get; }
+            public string Language { set; get; }
+            public string AppServerHost { set; get; }
+            public string SystemNumber { set; get; }
+            public string PoolSize { set; get; }
+            public string ConnectionIdleTimeout { set; get; }
+        }
+
+        public class SapConnection : IDestinationConfiguration
+        {
+            public SapParametros parametros { set; get; }
+
+            public SapConnection(SapParametros parametros)
+            {
+                this.parametros = parametros;
+            }
+
+            public RfcConfigParameters GetParameters(string NombreConexion)
+            {
+                RfcConfigParameters conf = new RfcConfigParameters();
+                conf.Add(RfcConfigParameters.Name, parametros.Name);
+                conf.Add(RfcConfigParameters.AppServerHost, parametros.AppServerHost);
+                conf.Add(RfcConfigParameters.SystemNumber, parametros.SystemNumber);
+                conf.Add(RfcConfigParameters.User, parametros.User);
+                conf.Add(RfcConfigParameters.Password, parametros.Password);
+                conf.Add(RfcConfigParameters.Client, parametros.Client);
+                conf.Add(RfcConfigParameters.Language, parametros.Language);
+                conf.Add(RfcConfigParameters.PoolSize, parametros.PoolSize);
+                conf.Add(RfcConfigParameters.ConnectionIdleTimeout, parametros.ConnectionIdleTimeout);
+                return conf;
+            }
+
+            public bool ChangeEventsSupported()
+            {
+                return true;
+            }
+
+            public event RfcDestinationManager.ConfigurationChangeHandler ConfigurationChanged;
+        }
     }
 }

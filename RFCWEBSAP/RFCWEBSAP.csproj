@@ -45,6 +45,7 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -55,20 +56,33 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PosicionesFactura.cs" />
+    <Compile Include="RegistroCrearOferta.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="RegistroFactura.cs" />
+    <Compile Include="RegistroOferta.cs" />
+    <Compile Include="RegistroPosicionCrearOferta.cs" />
+    <Compile Include="RespuestaCrearOferta.cs" />
+    <Compile Include="RespuestaInsOferta.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RegistroActualizarCliente.cs" />
     <Compile Include="RegistroCliente.cs" />
+    <Compile Include="RegistroCrearCliente.cs" />
     <Compile Include="RegistroInventario.cs" />
     <Compile Include="RegistroJerarquiaWeb.cs" />
     <Compile Include="RegistroPrecio.cs" />
     <Compile Include="RegistroVentas.cs" />
     <Compile Include="RepositorioSAP.cs" />
+    <Compile Include="RespuestaActualizarCliente.cs" />
+    <Compile Include="RespuestaCrearCliente.cs" />
+    <Compile Include="RespuestaInsUpdCliente.cs" />
+    <Compile Include="RespuestaInsUpdDelDireccion.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
